@@ -367,6 +367,10 @@ def collect_buyer_info(
 
     Returns confirmation of what was collected.
     """
+    # If set_buyer_count was not called, set it now from buyers list
+    if not session.get("declared_buyer_count"):
+        session["declared_buyer_count"] = len(buyers)
+
     # Pydantic validation
     is_valid, error, validated = validate_model(BuyerInfo, {
         "buyers":               buyers,
