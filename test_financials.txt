@@ -1,0 +1,17 @@
+FINANCIAL STATEMENT -- TEST COMPANY LTD
+Year ending 31 December 2025
+
+PROFIT & LOSS
+Annual Revenue:          4,000,000
+Cost of Sales:           2,000,000
+Bad Debts Written Off:      24,000
+
+BALANCE SHEET
+Current Assets:            680,000
+Current Liabilities:       270,000
+Total Liabilities:         620,000
+Tangible Net Worth:        490,000
+Total Assets:            1,110,000
+Capital (Paid Up):         250,000
+Trade Debtors:             380,000
+Trade Creditors:           180,000
