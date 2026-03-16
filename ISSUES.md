@@ -296,6 +296,37 @@ Status    : Resolved
 
 ---
 
+## ISSUE 013 -- collect_buyer_info Validation Loop
+Date      : 16 Mar 2026
+File      : tci_agent.py
+Status    : Resolved
+
+### Symptom
+    Agent kept asking for buyer count repeatedly in an infinite loop.
+    collect_buyer_info was failing Pydantic validation every time.
+    Customer provided buyer details multiple times with no progress.
+
+### Root Cause
+    set_buyer_count tool was not being called before collect_buyer_info.
+    session["declared_buyer_count"] was None.
+    BuyerInfo Pydantic model requires declared_buyer_count to match
+    the number of buyers provided -- with None it always failed.
+
+### Fix
+    Added fallback at the top of collect_buyer_info:
+        if not session.get("declared_buyer_count"):
+            session["declared_buyer_count"] = len(buyers)
+    This sets the count from the buyers list if set_buyer_count
+    was never called by the agent.
+
+### Lesson
+    - Always add fallbacks when session state may be None
+    - Pydantic validation errors should be logged immediately
+    - Infinite loops in agents are almost always a tool returning
+      an error that the agent cannot resolve
+    - Never rely on a separate tool being called before validation
+      runs -- add defensive fallbacks inside the tool itself
+
 ## OPEN ISSUES
 # Issues identified but not yet resolved
 
