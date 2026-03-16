@@ -538,7 +538,6 @@ async def run_voice_conversation():
         print("Processing your application through underwriting...")
         print("=" * 60 + "\n")
 
-        # Format transcript into a single summary message
         transcript_text = "\n".join([
             f"{'Customer' if t['role'] == 'user' else 'Alex'}: {t['content']}"
             for t in agent.transcript
@@ -546,15 +545,30 @@ async def run_voice_conversation():
 
         summary_prompt = f"""
         The following is a completed voice conversation where a customer applied
-        for trade credit insurance. Extract all the information and process
-        the full underwriting application:
+        for trade credit insurance.
 
         {transcript_text}
+
+        INSTRUCTIONS:
+        1. Extract ALL information from the transcript
+        2. Call collect_business_info with the business details
+        3. Call set_buyer_count then collect_buyer_info with buyer details
+        4. Call collect_financial_data with the financial figures
+        5. Call run_underwriting immediately
+        6. Call generate_policy_options immediately
+        7. Automatically select option_2 and call issue_policy with option_2
+        8. Do NOT wait for user input at any step
+        9. Do NOT ask any questions -- just process and issue the policy
         """
 
-        # Import and run the underwriting agent
         from tci_agent import run_underwriting_from_transcript
         run_underwriting_from_transcript(summary_prompt)
+
+        from tci_agent import session
+        if session.get("selected_policy"):
+            print(f"\nPolicy issued: {session.get('selected_policy')}")
+        else:
+            print("\nPolicy not issued -- check underwriting logs above")
 
 # ============================================================
 # SECTION 5 -- ENTRY POINT
