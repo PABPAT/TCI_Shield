@@ -7,6 +7,9 @@ import tempfile
 from voice_agent import run_voice_conversation
 from document_extractor import process_uploaded_document
 
+st.info("Voice agent requires local installation. "
+        "See GitHub for setup instructions. Use Text Chat below for a full demo.")
+
 st.title("Voice Agent")
 st.write("Speak to Alex, your AI underwriter.")
 

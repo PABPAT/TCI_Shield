@@ -170,3 +170,6 @@ python-dotenv
 Built for the [Amazon Nova AI Hackathon](https://amazon-nova.devpost.com/) — March 2026.
 
 Category: Voice AI + Agentic AI
+
+## Live Demo
+🚀 [Try TCI Shield on Hugging Face](https://huggingface.co/spaces/PABPAT/TCI_Shield)
