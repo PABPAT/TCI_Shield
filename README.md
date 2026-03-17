@@ -1,3 +1,19 @@
+---
+title: TCI Shield
+emoji: 🛡️
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 8501
+pinned: false
+short_description: AI-powered trade credit insurance underwriting agent
+tags:
+  - streamlit
+  - aws
+  - insurance
+  - agent
+---
+
 # TCI Shield
 
 AI-powered trade credit insurance underwriting using Amazon Nova.
