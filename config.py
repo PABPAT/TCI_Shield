@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 COMPANIES_HOUSE_API_KEY = os.getenv("COMPANIES_HOUSE_API_KEY")
+APP_PASSWORD = os.getenv("APP_PASSWORD")
 COMPANIES_HOUSE_BASE_URL = "https://api.company-information.service.gov.uk"
 
 # AWS Configuration

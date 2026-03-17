@@ -1,4 +1,8 @@
 import streamlit as st
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 st.set_page_config(
     page_title="TCI Shield",
@@ -17,7 +21,7 @@ def check_password():
         st.divider()
         password = st.text_input("Enter access code to continue", type="password")
         if st.button("Enter"):
-            if password == "tci2026":
+            if password == os.getenv("APP_PASSWORD", ""):
                 st.session_state.authenticated = True
                 st.rerun()
             else:
