@@ -1,5 +1,4 @@
 import streamlit as st
-import os
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -10,25 +9,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-def check_password():
-    if "authenticated" not in st.session_state:
-        st.session_state.authenticated = False
-
-    if not st.session_state.authenticated:
-        st.title("🛡️ TCI Shield")
-        st.subheader("AI-Powered Trade Credit Insurance Underwriting")
-        st.divider()
-        password = st.text_input("Enter access code to continue", type="password")
-        if st.button("Enter"):
-            if password == os.getenv("APP_PASSWORD", ""):
-                st.session_state.authenticated = True
-                st.rerun()
-            else:
-                st.error("Incorrect access code. Please try again.")
-        st.stop()
-
-check_password()
 
 st.title("🛡️ TCI Shield")
 st.subheader("AI-Powered Trade Credit Insurance Underwriting")
