@@ -23,5 +23,4 @@ jobs:
         run: |
           git config --global user.email "deploy@github-actions.com"
           git config --global user.name "GitHub Actions"
-          git remote add huggingface https://$HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/PABPAT/TCI_Shield
-          git push huggingface main --force
+          git push https://$HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/PABPAT/TCI_Shield main --force
