@@ -1,3 +1,4 @@
+cat > .github/workflows/deploy.yml << 'EOF'
 name: Deploy to HuggingFace Spaces
 
 on:
@@ -16,10 +17,20 @@ jobs:
           fetch-depth: 0
           lfs: true
 
-      - name: Push to HuggingFace Space
+      - name: Setup SSH
         env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/huggingface_deploy
+          chmod 600 ~/.ssh/huggingface_deploy
+          ssh-keyscan hf.co >> ~/.ssh/known_hosts
+          ssh-add ~/.ssh/huggingface_deploy
+
+      - name: Push to HuggingFace Space
         run: |
           git config --global user.email "deploy@github-actions.com"
           git config --global user.name "GitHub Actions"
-          git push https://oauth2:$HF_TOKEN@huggingface.co/spaces/PABPAT/TCI_Shield main --force
+          git remote add huggingface git@hf.co:spaces/PABPAT/TCI_Shield
+          git push huggingface main --force
+EOF
