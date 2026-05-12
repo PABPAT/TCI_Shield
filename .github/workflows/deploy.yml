@@ -24,7 +24,10 @@ jobs:
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/huggingface_deploy
           chmod 600 ~/.ssh/huggingface_deploy
           ssh-keyscan hf.co >> ~/.ssh/known_hosts
+          eval $(ssh-agent -s)
           ssh-add ~/.ssh/huggingface_deploy
+          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> $GITHUB_ENV
+          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> $GITHUB_ENV
 
       - name: Push to HuggingFace Space
         run: |
