@@ -13,6 +13,7 @@ voice_validation.json
 *.egg-info/
 dist/
 build/
+.idea/
 AWSCLIV2.pkg
 *.pkg
 *.dmgAWSCLIV2.pkg
