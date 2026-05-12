@@ -16,22 +16,10 @@ jobs:
           fetch-depth: 0
           lfs: true
 
-      - name: Setup SSH
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-        run: |
-          mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/huggingface_deploy
-          chmod 600 ~/.ssh/huggingface_deploy
-          ssh-keyscan hf.co >> ~/.ssh/known_hosts
-          eval $(ssh-agent -s)
-          ssh-add ~/.ssh/huggingface_deploy
-          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> $GITHUB_ENV
-          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> $GITHUB_ENV
-
       - name: Push to HuggingFace Space
+        env:
+          HF_TOKEN: ${{ secrets.TCI_SHIELD_HUGGING_FACE }}
         run: |
           git config --global user.email "deploy@github-actions.com"
           git config --global user.name "GitHub Actions"
-          git remote add huggingface git@hf.co:spaces/PABPAT/TCI_Shield
-          git push huggingface main --force
+          git push https://oauth2:$HF_TOKEN@huggingface.co/spaces/PABPAT/TCI_Shield main --force
