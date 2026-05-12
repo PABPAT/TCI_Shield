@@ -882,7 +882,7 @@ def run_conversation():
         print(f"\nAlex: {extract_text(response)}\n")
 
 
-def run_underwriting_from_transcript(transcript_summary: str) -> dict:
+def run_underwriting_from_transcript(transcript_summary: str, extracted_financials: dict = None) -> dict:
     """
     Called by voice_agent.py after voice conversation ends.
     Processes transcript, runs underwriting, generates policy options.
@@ -890,6 +890,10 @@ def run_underwriting_from_transcript(transcript_summary: str) -> dict:
     Does NOT issue policy -- Streamlit handles that after customer selects.
     """
     reset_session()
+    if extracted_financials:
+        session["financials"] = extracted_financials
+        session["progress"]["financials_collected"] = True
+        logging.info("Pre-extracted financials restored after session reset")
 
     agent = Agent(
         model=nova_lite,

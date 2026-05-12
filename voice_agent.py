@@ -18,7 +18,6 @@
 
 import asyncio
 import base64
-import boto3
 import json
 import uuid
 import logging
@@ -37,7 +36,6 @@ from aws_sdk_bedrock_runtime.config import (
     HTTPAuthSchemeResolver,
     SigV4AuthScheme,
 )
-from smithy_core.shapes import ShapeID
 
 from config import AWS_REGION
 
@@ -50,11 +48,11 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
 #   Input  : 16kHz, 16-bit PCM, mono
 #   Output : 24kHz, 16-bit PCM, mono, base64 encoded
 
-INPUT_SAMPLE_RATE = 16000  # microphone input rate
+INPUT_SAMPLE_RATE = 16000   # microphone input rate
 OUTPUT_SAMPLE_RATE = 24000  # Nova Sonic output rate
-CHANNELS = 1  # mono audio
+CHANNELS = 1                # mono audio
 FORMAT = pyaudio.paInt16
-CHUNK_SIZE = 1024  # audio chunk size in frames
+CHUNK_SIZE = 1024           # audio chunk size in frames
 
 # Nova Sonic model ID
 NOVA_SONIC_MODEL_ID = "amazon.nova-2-sonic-v1:0"
@@ -92,6 +90,7 @@ Collect the following information in this exact order:
 When all information is collected, summarise what you have gathered
 and tell the customer their application will now be processed.
 """
+
 # ============================================================
 # SECTION 3 -- NOVA SONIC CLIENT
 # ============================================================
@@ -103,18 +102,20 @@ class NovaSonicVoiceAgent:
     """
 
     def __init__(self):
-        self.model_id = NOVA_SONIC_MODEL_ID
-        self.region = AWS_REGION
-        self.client = None
-        self.stream = None
-        self.is_active = False
-        self.prompt_name = str(uuid.uuid4())
-        self.content_name = str(uuid.uuid4())
+        self.model_id           = NOVA_SONIC_MODEL_ID
+        self.region             = AWS_REGION
+        self.client             = None
+        self.stream             = None
+        self.is_active          = False
+        self.prompt_name        = str(uuid.uuid4())
+        self.content_name       = str(uuid.uuid4())
         self.audio_content_name = str(uuid.uuid4())
-        self.audio_queue = asyncio.Queue()
-        self.transcript = []  # stores conversation transcript
-        self.collected_text = ""  # accumulates assistant text response
-        self.alex_is_speaking = False
+        self.audio_queue        = asyncio.Queue()
+        self.transcript         = []   # stores conversation transcript
+        self.collected_text     = ""   # accumulates assistant text response
+        self.alex_is_speaking   = False
+        self._cooldown_active   = False
+        self._cooldown_seconds  = 1.5  # seconds to mute mic after Alex speaks
 
     # ----------------------------------------------------------
     # SECTION 3.1 -- CLIENT INITIALIZATION
@@ -125,7 +126,7 @@ class NovaSonicVoiceAgent:
         from smithy_aws_core.identity.static import StaticCredentialsResolver
 
         session = boto3.session.Session()
-        creds = session.get_credentials().get_frozen_credentials()
+        creds   = session.get_credentials().get_frozen_credentials()
 
         config = Config(
             endpoint_uri=f"https://bedrock-runtime.{self.region}.amazonaws.com",
@@ -206,13 +207,13 @@ class NovaSonicVoiceAgent:
                         "mediaType": "text/plain"
                     },
                     "audioOutputConfiguration": {
-                        "mediaType": "audio/lpcm",
-                        "sampleRateHertz": OUTPUT_SAMPLE_RATE,
-                        "sampleSizeBits": 16,
-                        "channelCount": CHANNELS,
-                        "voiceId": "matthew",  # masculine British voice
-                        "encoding": "base64",
-                        "audioType": "SPEECH"
+                        "mediaType":        "audio/lpcm",
+                        "sampleRateHertz":  OUTPUT_SAMPLE_RATE,
+                        "sampleSizeBits":   16,
+                        "channelCount":     CHANNELS,
+                        "voiceId":          "matthew",
+                        "encoding":         "base64",
+                        "audioType":        "SPEECH"
                     }
                 }
             }
@@ -223,11 +224,11 @@ class NovaSonicVoiceAgent:
         text_content_start = json.dumps({
             "event": {
                 "contentStart": {
-                    "promptName": self.prompt_name,
+                    "promptName":  self.prompt_name,
                     "contentName": self.content_name,
-                    "type": "TEXT",
+                    "type":        "TEXT",
                     "interactive": True,
-                    "role": "SYSTEM",
+                    "role":        "SYSTEM",
                     "textInputConfiguration": {
                         "mediaType": "text/plain"
                     }
@@ -240,9 +241,9 @@ class NovaSonicVoiceAgent:
         system_prompt_event = json.dumps({
             "event": {
                 "textInput": {
-                    "promptName": self.prompt_name,
+                    "promptName":  self.prompt_name,
                     "contentName": self.content_name,
-                    "content": VOICE_SYSTEM_PROMPT
+                    "content":     VOICE_SYSTEM_PROMPT
                 }
             }
         })
@@ -252,7 +253,7 @@ class NovaSonicVoiceAgent:
         text_content_end = json.dumps({
             "event": {
                 "contentEnd": {
-                    "promptName": self.prompt_name,
+                    "promptName":  self.prompt_name,
                     "contentName": self.content_name,
                 }
             }
@@ -263,18 +264,18 @@ class NovaSonicVoiceAgent:
         audio_content_start = json.dumps({
             "event": {
                 "contentStart": {
-                    "promptName": self.prompt_name,
+                    "promptName":  self.prompt_name,
                     "contentName": self.audio_content_name,
-                    "type": "AUDIO",
+                    "type":        "AUDIO",
                     "interactive": True,
-                    "role": "USER",
+                    "role":        "USER",
                     "audioInputConfiguration": {
-                        "mediaType": "audio/lpcm",
+                        "mediaType":      "audio/lpcm",
                         "sampleRateHertz": INPUT_SAMPLE_RATE,
                         "sampleSizeBits": 16,
-                        "channelCount": CHANNELS,
-                        "audioType": "SPEECH",
-                        "encoding": "base64"
+                        "channelCount":   CHANNELS,
+                        "audioType":      "SPEECH",
+                        "encoding":       "base64"
                     }
                 }
             }
@@ -291,13 +292,13 @@ class NovaSonicVoiceAgent:
         Sends a chunk of microphone audio to Nova Sonic.
         Audio must be base64 encoded before sending.
         """
-        audio_b64 = base64.b64encode(audio_data).decode("utf-8")
+        audio_b64   = base64.b64encode(audio_data).decode("utf-8")
         audio_event = json.dumps({
             "event": {
                 "audioInput": {
-                    "promptName": self.prompt_name,
+                    "promptName":  self.prompt_name,
                     "contentName": self.audio_content_name,
-                    "content": audio_b64
+                    "content":     audio_b64
                 }
             }
         })
@@ -308,7 +309,7 @@ class NovaSonicVoiceAgent:
         content_end = json.dumps({
             "event": {
                 "contentEnd": {
-                    "promptName": self.prompt_name,
+                    "promptName":  self.prompt_name,
                     "contentName": self.audio_content_name,
                 }
             }
@@ -334,7 +335,7 @@ class NovaSonicVoiceAgent:
 
                 if result.value and result.value.bytes_:
                     response_data = result.value.bytes_.decode("utf-8")
-                    json_data = json.loads(response_data)
+                    json_data     = json.loads(response_data)
 
                     if "event" in json_data:
                         event = json_data["event"]
@@ -359,7 +360,7 @@ class NovaSonicVoiceAgent:
                             elif text and role == "USER":
                                 print(f"\nYou : {text}", end="", flush=True)
                                 self.transcript.append({
-                                    "role": "user",
+                                    "role":    "user",
                                     "content": text
                                 })
 
@@ -368,10 +369,12 @@ class NovaSonicVoiceAgent:
                             self.alex_is_speaking = False
                             if self.collected_text:
                                 self.transcript.append({
-                                    "role": "assistant",
+                                    "role":    "assistant",
                                     "content": self.collected_text
                                 })
                                 self.collected_text = ""
+                            # Start cooldown to prevent mic picking up speaker echo
+                            asyncio.create_task(self._start_cooldown())
 
         except Exception as e:
             if self.is_active:
@@ -386,7 +389,7 @@ class NovaSonicVoiceAgent:
         Plays Nova Sonic's audio responses through the speaker.
         Reads from audio_queue which is filled by process_responses.
         """
-        audio_handler = pyaudio.PyAudio()
+        audio_handler  = pyaudio.PyAudio()
         speaker_stream = audio_handler.open(
             format=FORMAT,
             channels=CHANNELS,
@@ -411,10 +414,11 @@ class NovaSonicVoiceAgent:
     async def capture_audio(self):
         """
         Captures audio from microphone and streams to Nova Sonic.
-        Runs continuously until user presses Enter to stop.
+        Pauses during Alex's speech and cooldown period to prevent
+        echo feedback loop.
         """
         audio_handler = pyaudio.PyAudio()
-        mic_stream = audio_handler.open(
+        mic_stream    = audio_handler.open(
             format=FORMAT,
             channels=CHANNELS,
             rate=INPUT_SAMPLE_RATE,
@@ -434,7 +438,7 @@ class NovaSonicVoiceAgent:
         try:
             while self.is_active:
                 audio_data = mic_stream.read(CHUNK_SIZE, exception_on_overflow=False)
-                if not self.alex_is_speaking:
+                if not self.alex_is_speaking and not self._cooldown_active:
                     await self.send_audio_chunk(audio_data)
                 await asyncio.sleep(0.01)
         except Exception as e:
@@ -451,7 +455,22 @@ class NovaSonicVoiceAgent:
         logging.info("Audio input starting")
 
     # ----------------------------------------------------------
-    # SECTION 3.8 -- SESSION END
+    # SECTION 3.8 -- COOLDOWN
+    # ----------------------------------------------------------
+
+    async def _start_cooldown(self):
+        """
+        Mutes microphone briefly after Alex finishes speaking.
+        Prevents echo feedback loop where mic picks up speaker output.
+        _cooldown_seconds can be increased if echo persists.
+        """
+        self._cooldown_active = True
+        await asyncio.sleep(self._cooldown_seconds)
+        self._cooldown_active = False
+        logging.info("Microphone cooldown complete -- listening again")
+
+    # ----------------------------------------------------------
+    # SECTION 3.9 -- SESSION END
     # ----------------------------------------------------------
 
     async def end_session(self):
@@ -510,12 +529,6 @@ async def run_voice_conversation():
     # Start the session
     await agent.start_session()
 
-    # Run three tasks concurrently:
-    # 1. capture_audio    -- reads from mic, sends to Nova Sonic
-    # 2. process_responses -- receives from Nova Sonic, queues audio + text
-    # 3. play_audio       -- plays queued audio through speaker
-    # 4. wait_for_enter   -- waits for user to press Enter to stop
-
     async def wait_for_enter():
         """Waits for Enter key press then ends session."""
         await asyncio.get_event_loop().run_in_executor(None, input)
@@ -532,6 +545,7 @@ async def run_voice_conversation():
     # Wait for all tasks to complete
     await asyncio.gather(*tasks, return_exceptions=True)
     logging.info("Voice conversation complete")
+
     # Once voice conversation ends, pass transcript to underwriting agent
     if agent.transcript:
         print("\n" + "=" * 60)
@@ -556,9 +570,8 @@ async def run_voice_conversation():
         4. Call collect_financial_data with the financial figures
         5. Call run_underwriting immediately
         6. Call generate_policy_options immediately
-        7. Automatically select option_2 and call issue_policy with option_2
-        8. Do NOT wait for user input at any step
-        9. Do NOT ask any questions -- just process and issue the policy
+        7. STOP after generate_policy_options -- do NOT call issue_policy
+        8. Do NOT ask any questions -- just process and issue the policy
         """
 
         from tci_agent import run_underwriting_from_transcript
@@ -569,6 +582,7 @@ async def run_voice_conversation():
             print(f"\nPolicy issued: {session.get('selected_policy')}")
         else:
             print("\nPolicy not issued -- check underwriting logs above")
+
 
 # ============================================================
 # SECTION 5 -- ENTRY POINT
