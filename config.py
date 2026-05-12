@@ -17,8 +17,8 @@ COMPANIES_HOUSE_BASE_URL = "https://api.company-information.service.gov.uk"
 AWS_REGION = "us-east-1"
 
 # Nova Model IDs
-NOVA_LITE_MODEL_ID   = "amazon.nova-lite-v1:0"
-NOVA_SONIC_MODEL_ID  = "amazon.nova-sonic-v1:0"
+NOVA_LITE_MODEL_ID   = "us.amazon.nova-2-lite-v1:0"
+NOVA_SONIC_MODEL_ID  = "amazon.nova-2-sonic-v1:0"
 
 # DynamoDB Table Names
 TABLE_CUSTOMERS = "tci_customers"

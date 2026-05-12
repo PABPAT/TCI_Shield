@@ -882,13 +882,12 @@ def run_conversation():
         print(f"\nAlex: {extract_text(response)}\n")
 
 
-def run_underwriting_from_transcript(transcript_summary: str):
+def run_underwriting_from_transcript(transcript_summary: str) -> dict:
     """
     Called by voice_agent.py after voice conversation ends.
-    Takes the full conversation transcript and runs underwriting.
-    Processes voice transcript through Nova Lite.
-    If any Pydantic validation fails, saves missing fields
-    so Streamlit can show them to the customer.
+    Processes transcript, runs underwriting, generates policy options.
+    Returns policy options dict for Streamlit to display.
+    Does NOT issue policy -- Streamlit handles that after customer selects.
     """
     reset_session()
 
@@ -896,12 +895,16 @@ def run_underwriting_from_transcript(transcript_summary: str):
         model=nova_lite,
         system_prompt=SYSTEM_PROMPT + """
         IMPORTANT: You are processing a completed voice conversation transcript.
-        Extract ALL information from the transcript and call tools in order.
-        If a tool returns a validation error, check what is missing and
-        write it clearly in your response starting with MISSING_DATA:
-        followed by a comma separated list of missing fields.
-        Example: MISSING_DATA: payment_terms_days, loss_ratio
-        Do NOT ask the customer questions -- just process the transcript.
+        Extract ALL information from the transcript and call tools in this exact order:
+        1. Call set_buyer_count with the number of buyers
+        2. Call collect_business_info with all business details
+        3. Call collect_buyer_info with all buyer details
+        4. Call collect_financial_data with all financial figures
+        5. Call run_underwriting immediately
+        6. Call generate_policy_options immediately
+        7. STOP after generate_policy_options -- do NOT call issue_policy
+        8. Do NOT ask any questions -- just process the transcript
+        9. If any data is missing write MISSING_DATA: followed by missing fields
         """,
         tools=[
             get_progress,
@@ -919,7 +922,6 @@ def run_underwriting_from_transcript(transcript_summary: str):
     logging.info("Running underwriting from voice transcript")
     result = agent(transcript_summary)
 
-    # Check if any data was missing
     result_text = str(result)
     if "MISSING_DATA:" in result_text:
         missing_line = [
@@ -928,13 +930,45 @@ def run_underwriting_from_transcript(transcript_summary: str):
         ]
         if missing_line:
             missing_fields = missing_line[0].replace("MISSING_DATA:", "").strip()
-            import json
             with open("voice_missing.json", "w") as f:
                 json.dump({
                     "missing_fields": missing_fields,
-                    "policy_issued":  session.get("selected_policy") is not None
+                    "policy_issued":  False
                 }, f)
             logging.warning(f"Voice transcript missing: {missing_fields}")
+            return {}
+
+    underwriting_result = session.get("underwriting_result")
+    if not underwriting_result:
+        logging.error("Underwriting result missing after transcript processing")
+        return {}
+
+    options_json = generate_policy_options()
+    options      = json.loads(options_json)
+
+    if "error" in options:
+        logging.error(f"Policy options error: {options['error']}")
+        return {}
+
+    logging.info("Voice transcript processed successfully -- options ready")
+
+    return {
+        "underwriting_result": underwriting_result,
+        "policy_options":      options,
+        "session_ready":       True
+    }
+
+
+def issue_policy_from_voice(selected_option: str) -> dict:
+    """
+    Called by Streamlit after customer selects a policy option
+    from the voice agent flow.
+    Session state is already populated from run_underwriting_from_transcript.
+    """
+    result_json = issue_policy(selected_option)
+    result      = json.loads(result_json)
+    logging.info(f"Policy issued from voice: {result.get('policy_id')}")
+    return result
 
 # ============================================================
 # SECTION 8 -- ENTRY POINT
